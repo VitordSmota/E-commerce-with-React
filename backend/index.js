@@ -6,13 +6,16 @@ const jwt = require("jsonwebtoken")
 const multer = require("multer")
 const path = require("path")
 const cors = require("cors");
-const { type } = require("os");
 const config = require("./config");
-const { error } = require("console");
+const bcrypt = require('bcrypt');
+const bodyParser = require('body-parser')
+
 
 
 app.use(express.json())
 app.use(cors())
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 
 // Database Connection with mongoDB
 mongoose.connect(
@@ -169,10 +172,11 @@ app.post('/signup', async (req, res) => {
   
     cart[i] = 0;
   }
+  const hashedPassword = await bcrypt.hash(req.body.password, 10);
   const user = new Users({
     name: req.body.name,
     email: req.body.email,
-    password: req.body.password,
+    password: hashedPassword,
     cartData: cart,
   });
 
@@ -195,23 +199,24 @@ app.post('/login', async (req, res) => {
   let user = await Users.findOne({ email: req.body.email });
   
   if (user) {
+    const { password } = req.body;
 
-    const passCompare = req.body.password === user.password;
+    // const passCompare = req.body.password === user.password;
+    
+    const isMatch = await bcrypt.compare(password, user.password);
 
-      if (passCompare) {
+      if (isMatch) {
         const data = {
           user: {
-            id: user.id
-          }
-        }
+            id: user.id,
+          },
+        };
 
-        const token = jwt.sign(data, 'secret_ecom');
+        const token = jwt.sign(data, "secret_ecom");
         res.json({ success: true, token });
-
-    }
-      else {
-        res.json({success:false,errors:"Wrong Password"})
-    }
+      } else {
+        res.json({ success: false, errors: "Wrong Password" });
+      }
     
   }
   else {
